@@ -1,6 +1,7 @@
-import dash
+from dash import html, Dash
 import dash_bootstrap_components as dbc
 from flask_caching import Cache
+
 
 stylesheets = [
     {
@@ -20,11 +21,12 @@ external_scripts = [
     # "assets\js\sb-admin-2.js",
 ]
 
-app = dash.Dash(__name__, 
+app = Dash(__name__, 
     external_stylesheets=stylesheets,
     external_scripts=external_scripts,
     suppress_callback_exceptions=True,
     )
+
 
 CACHE_CONFIG = {
     "DEBUG": True,          # some Flask specific configs
@@ -35,4 +37,3 @@ CACHE_CONFIG = {
 cache = Cache()
 cache.init_app(app.server, config=CACHE_CONFIG)
 
-server = app.server
