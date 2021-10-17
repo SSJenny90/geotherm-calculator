@@ -1,69 +1,96 @@
 from dash import html, dcc
-# import dash_bootstrap_components as dbc
+from dash.html.Col import Col
+from dash.html.Div import Div
+import dash_bootstrap_components as dbc
 from app import app
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output, State
-import compute
-
-fig = go.Figure(
-    data=[go.Scatter()],
-    
-    layout = go.Layout(
-    # title='Geotherm',
-    xaxis_title='Temperature [&deg;C]',
-    yaxis_title='Depth [km]',
-    xaxis = dict(side='top'),
-    yaxis_range=[0,250],
-    xaxis_range=[0,1500],
-    yaxis = dict(
-        autorange='reversed',
-        ),
-
-    font=dict(
-        # family="Courier New, monospace",
-        size=18,
-    ))
-)
-    
-fig.update_layout()
-
-
+from components import graphic_card
+from figure import geotherm, conductivity, heat_prod, heat_flow, expansivity, parameters
+from geotherms.models import Hasterok
+from geotherms import Layer
+import pandas as pd
 layout = html.Div(id='dashboard',
     children=[
-        dcc.Graph(figure=fig, id='main-figure'),
+
+        dbc.Row([
+            dbc.Col([
+                graphic_card('Geotherm', children=[
+                    html.Div(className='d-flex flex-row align-items-center', children=[
+                        dcc.RangeSlider(id='depth_slider', className='px-5',
+                            min=-85, max=0, 
+                            value=[-40,-24,-16], 
+                            pushable=5, 
+                            vertical=True,     
+                            step=2,
+                            marks={-i*10: f'{i*10}' for i in range(9)}),
+                        dcc.Graph(figure=geotherm, id='geotherm-plot', className='flex-fill'),
+                        ])
+                ])
+            ]),
+
+            # dbc.Col([
+            #     graphic_card('Parameters',parameters, plot_id='parameter-plot')
+            # ], lg=5),
+
+            ]),
         ],
     )
 
 @app.callback(
-    Output('main-figure', 'figure'),
-    [
-        Input('surface_hf','value'), 
-        Input('p_value','value'), 
-        Input('upper_hp','value'), 
-        Input('middle_hp','value'), 
-        Input('lower_hp','value'), 
-        Input('mantle_hp','value'), 
-        Input('dz','value'), 
-        Input('middle_top','value'), 
-        Input('lower_top','value'), 
-        Input('moho','value'), 
+    Output('geotherm-plot', 'figure'),
+    [   Input('surface_hf','value'), 
+        Input('surface_temp','value'), 
+        Input('model-props','data'), 
+        Input('model-props','columns'), 
+        Input('depth_slider','value'),
         Input('max_depth','value'), 
-        State('main-figure','figure')
-        ]
-        )
-def display_output(surface_hf, p_value, upper_hp, middle_hp, lower_hp, mantle_hp, dz, middle_top,lower_top,moho, max_depth, fig):
-    df = compute.geotherm(surface_hf,max_depth,dz,[middle_top,lower_top,moho], dict(
-                    upper=upper_hp,
-                    middle=middle_hp,
-                    lower=lower_hp,
-                    mantle=mantle_hp
-                    ))
+        State('geotherm-plot','figure')
+        ])
+def display_output(surface_hf, surface_temp, data, columns, depth_slider, max_depth, fig):
+       
+    input = pd.DataFrame(data,columns=[c['name'] for c in columns])
+    input.columns = ['label','heat_production','density']
+    input['top'] = [0] + sorted([abs(i) for i in depth_slider])
+    input['bottom'] = sorted([abs(i) for i in depth_slider]) + [max_depth]
 
+    input[['heat_production','density']] = input[['heat_production','density']].astype('float64')
 
+    # input['density'] = pd.to_numeric(input['density'])
+    print(input.dtypes)
+
+    model = Hasterok(
+        surface_hf=surface_hf,
+        surface_temp=surface_temp+273,
+        layers=[Layer(**row.to_dict()) for i, row in input.iterrows()])
+
+    df = model.compute(dz=1)
+
+    l, r = df.T_upper.min() if df.T_upper.min() < 0 else 0, df.adiabat_lower.max()-273
+    t, b = 0, df.z_lower.max()
+
+    fig['layout']['yaxis'].update({'range':[t,b],'autorange':'reversed'})
+    fig['layout']['xaxis'].update({'range':[l,r]})
     fig['data'] = [
-        {'type':'scatter', 'x':df.T_lower, 'y':df.z_lower, 'name':'Geotherm'},
-        # {'type':'scatter', 'x':x, 'y':df.offset, 'name':'Buffer offset'},
-        ]
+        go.Scatter(
+            name=f'{layer.label.capitalize()}', 
+            fillcolor=c,
+            x=[l,l,r,r],
+            y=[layer.top,layer.bottom,layer.bottom,layer.top],
+            marker={'opacity':0,'color':c},
+            text=str(layer),
+            fill = "toself",
+            opacity = 0.2, 
+            showlegend = False) for layer,c in zip(model.layers,['#F1C40F','#D68910','#6E2C00','#186A3B'])
+    ]
 
+
+    fig['data'].extend([
+        go.Scatter(name='Geotherm', x=df.T_upper, y=df.z_upper,  
+            marker={'color':'red'}),
+        go.Scatter(name='Adiabat', x=df.adiabat_upper-273, y=df.z_upper, 
+            line={'dash':'dash'}, 
+            marker={'color':'red'}),
+        ])
 
     return fig
