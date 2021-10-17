@@ -1,9 +1,17 @@
-from dash import html, dcc
+from typing import Container
+from dash import html, dcc, dash_table
 from dash.html.H6 import H6
 from dash.html.Span import Span
 import dash_bootstrap_components as dbc
 from random import randint
 import dash_daq as daq
+import pandas as pd
+
+df = pd.DataFrame(dict(
+            Label=['upper crust','middle crust','lower crust','mantle'],
+            HP=[1.0563,0.4,0.4,0.02],
+            Density=[2850,2850,2850,3350],
+        ))
 
 def li(label,href,icon):
     return  html.Li(className="nav-item", children=[
@@ -76,6 +84,16 @@ def input(label, width, children=[]):
             className='pb-1',
         )
 
+def dual_input(label, width, children=[]):
+    fid=f"{label.lower()}-{randint(0,10000)}" 
+
+    children = [dbc.Col(child, width=12/2-width) for child in children]
+
+    return dbc.InputGroup([
+                dbc.Label(label, html_for=fid, width=width)].extend(children),
+            className='pb-1',
+        )
+
 def number_input(**kwargs):
     # nrange = kwargs.pop('nrange', None)
     return dbc.Input(**kwargs, type='number', debounce=True)
@@ -85,43 +103,46 @@ sidebar = html.Ul(
         html.A(
             className="sidebar-brand d-flex align-items-center justify-content-center", href="/",
             children=[
-                    html.Span('Geotherm', className='pr-1'),
+                    html.Span('My Geotherm',className='pr-2'),
                     html.I(className="fas fa-calculator"),
                 ]),       
         html.Hr(className="sidebar-divider my-0"),
+        sidebar_form('Model Setup','fas fa-layer-group', children=[
+                html.H6('Heat Flow', className='collapse-header'),                
+                input('Surface Heat Flow', 6, number_input(id='surface_hf',value=65,)),
+                input('Surface Temp [°C]', 6, number_input(id='surface_temp',value=24,)),
+                input('Model Depth', 6, number_input(id='max_depth',value=250,)),
 
-        sidebar_form('Heat Flow','fas fa-fire', children=[
-            input('Surface', 3, number_input(id='surface_hf',value=65,)),
-            ]),
-
-        sidebar_form('Heat Production','fas fa-layer-group', children=[
-                dbc.InputGroup([
-                    dbc.Label('Partition', width=2),
-                    dbc.Col(
-                        daq.BooleanSwitch(id='my-boolean-switch', on=False),
-                        width=8),
-                    dbc.Label('Direct', width=2),
-                    ]),
-                input('P-value', 3, number_input(id='p_value',value=0.76,)),
-                html.H6('Heat Production Values', className='collapse-header'),                
-                input('Upper',  3, number_input(id='upper_hp',value=1.0563,)),
-                input('Middle', 3, number_input(id='middle_hp',value=0.4,)),
-                input('Lower',  3, number_input(id='lower_hp',value=0.4,)),
-                input('Mantle',  3, number_input(id='mantle_hp',value=0.02,)),
-            ]),
-        sidebar_form('Model Depths','fas fa_layer-group', children=[
-            input('Step', 3, number_input(id='dz',value=0.5,)),
-            input('Middle', 3, number_input(id='middle_top',value=16,)),
-            input('Lower', 3, number_input(id='lower_top',value=24,)),
-            input('Moho', 3, number_input(id='moho',value=40,)),
-            input('Max_Depth', 3, number_input(id='max_depth',value=250,)),
-            ]),  
+                # dbc.InputGroup([
+                    # dbc.Label('Partition', width=2),
+                    # dbc.Col(
+                    #     daq.BooleanSwitch(id='my-boolean-switch', on=False),
+                    #     width=8),
+                    # dbc.Label('Direct', width=2),
+                    # ]),
+                # input('P-value', 4, number_input(id='p_value',value=0.76,)),
+                html.H6('Layer Properties', className='collapse-header'),    
+                dbc.Container(            
+                    dash_table.DataTable(
+                        id='model-props', data=df.to_dict('records'),
+                        columns=[{"name": i, "id": i} for i in df.columns],
+                        editable=True,
+                        style_as_list_view=True,
+                        style_cell={'textAlign': 'center'},
+                        style_cell_conditional=[
+                            {
+                                'if': {'column_id': 'Label'},
+                                'textAlign': 'left'
+                            }]   
+                    ),
+                )
+            ]), 
         html.Hr(className="sidebar-divider my-0"),
     ])
 
 navbar = html.Nav(
     className="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow",
-    children=html.H3(id='topnav-title', children='A simple geotherm calculator!')
+    children=html.H3(id='topnav-title', children='Welcome to my geotherm calculator!')
     )
 
 
