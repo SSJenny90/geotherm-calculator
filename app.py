@@ -10,13 +10,12 @@ stylesheets = [
         'integrity': 'sha384-vp86vTRFVJgpjF9jiIGPEEqYqlDwgyBgEF109VFjmqGmIY/Y4HV4d3Gp2irVfcrp',
         'crossorigin': 'anonymous'
     },
-    # "assets\css\sb-admin-2.css",
-    dbc.themes.DARKLY,
+    "assets\css\sb-admin-2.css",
+    # dbc.themes.DARKLY,
 ]
 
 external_scripts = [
     "assets\js\jquery.min.js",
-    "assets\js\\bootstrap.bundle.min.js",
     "assets\js\jquery.easing.min.js",
     # "assets\js\sb-admin-2.js",
 ]
